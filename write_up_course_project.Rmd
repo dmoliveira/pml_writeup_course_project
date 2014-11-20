@@ -1,0 +1,42 @@
+---
+title: "Practical Machine Learning - Write Up Course Project"
+author: "Oliveira, D. M."
+date: "November 20, 2014"
+output: html_document
+---
+
+## Introduction
+The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. It need to be created a report describing how the model was built, how were used cross validation, what think was expected out of sample error, and why the choices made.
+
+## Exploratory Data Analysis
+```{r}
+train_data <- read.csv2('pml-training.csv', sep=',')
+test_data <- read.csv2('pml-testing.csv', sep=',')
+
+str(train_data)
+```
+
+After data analysis, only numeric variables were selected to predict the correct classes.
+```{r,results='hide'}
+is_to_maintain_columns <- sapply(na.omit(train_data), is.numeric)
+is_to_maintain_columns[length(is_to_maintain_columns)] = TRUE
+processed_train_data <- train_data[,is_to_maintain_columns]
+processed_test_data <- train_data[,is_to_maintain_columns]
+```
+
+## Train and Evaluate
+```{r}
+library(caret)
+set.seed(825)
+fitControl <- trainControl(method="repeatedcv",
+                           number=5,
+                           repeats=1,
+                           verboseIter=TRUE)
+gbmFit <- train(classe ~ ., data=processed_train_data,
+                method="gbm",
+                trControl=fitControl,
+                verbose=FALSE)
+
+predicted_values <- predict(gbmFit, processed_test_data)
+plot(predicted_values)
+```
