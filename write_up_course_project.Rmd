@@ -1,7 +1,7 @@
 ---
 title: "Practical Machine Learning - Write Up Course Project"
 author: "Oliveira, D. M."
-date: "November 20, 2014"
+date: "January 25, 2015"
 output: html_document
 ---
 
@@ -9,34 +9,61 @@ output: html_document
 The goal of this project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. It need to be created a report describing how the model was built, how were used cross validation, what think was expected out of sample error, and why the choices made.
 
 ## Exploratory Data Analysis
+Explorary data analysis was made with the aim in analyze the classification of each variable. Other types of analysis could be made as univariate and multivariate analysis, histogram analysis, among others. But due to the restrictions of this report, I tried to mantain its simple.  
 ```{r}
-train_data <- read.csv2('pml-training.csv', sep=',')
-test_data <- read.csv2('pml-testing.csv', sep=',')
+train_data <- read.csv2('pml-training.csv', sep=',', na.strings=c("#DIV/0!"), row.names = 1)
+test_data <- read.csv2('pml-testing.csv', sep=',', na.strings=c("#DIV/0!"), row.names = 1)
 
+# Very simple and primitive data analysis
 str(train_data)
 ```
 
-After data analysis, only numeric variables were selected to predict the correct classes.
+After data analysis, only numeric variables were selected and preprocess data to predict the correct classes. Also columns with only NAs were removed finalizing with 29 variables from the initial 160 variables.
 ```{r,results='hide'}
-is_to_maintain_columns <- sapply(na.omit(train_data), is.numeric)
+# Remove NAs: Training Set
+is_to_maintain_columns <- sapply(na.omit(train_data), function(value) {is.numeric(value)})
 is_to_maintain_columns[length(is_to_maintain_columns)] = TRUE
 processed_train_data <- train_data[,is_to_maintain_columns]
-processed_test_data <- train_data[,is_to_maintain_columns]
+processed_train_data <- processed_train_data[complete.cases(processed_train_data),]
+for (name in names(processed_train_data)) {
+    if(name != 'classe'){
+        processed_train_data[,name] <- as.numeric(processed_train_data[,name])
+    } else {
+       processed_train_data[,name] <- as.factor(processed_train_data[,name]) 
+    }
+}
+
+# Remove NAs and adjusting Test Set
+is_to_maintain_columns <- names(test_data) %in% names(processed_train_data)
+is_to_maintain_columns[1] <- FALSE
+processed_test_data <- test_data[,is_to_maintain_columns]
+for (name in names(processed_test_data)) {
+    processed_test_data[,name] <- as.numeric(processed_test_data[,name])
+    values <- processed_test_data[,name]
+}
 ```
 
-## Train and Evaluate
-```{r}
+## Training with Cross Validation
+The preprocessed training data was trained using cross-validation with fold equals five and Decision Forest method. The results for the training is shown below.
+```{r,cache=TRUE}
 library(caret)
 set.seed(825)
-fitControl <- trainControl(method="repeatedcv",
-                           number=5,
-                           repeats=1,
-                           verboseIter=TRUE)
-gbmFit <- train(classe ~ ., data=processed_train_data,
-                method="gbm",
-                trControl=fitControl,
-                verbose=FALSE)
-
-predicted_values <- predict(gbmFit, processed_test_data)
-plot(predicted_values)
+training_options <- trainControl(method="repeatedcv", number=5, repeats=1, verboseIter=TRUE)
+fitted_model <- train(classe ~ ., 
+                      data=processed_train_data,
+                      metric = "Accuracy",
+                      method="rf", #Other methods: gbm, lda, rf, ada
+                      preProcess=c('center', 'scale'),
+                      trControl=training_options,
+                      verbose=FALSE)
+fitted_model
 ```
+
+## Prediction with New Data
+```{r}
+predicted_values <- predict(fitted_model, processed_test_data)
+predicted_values
+```
+
+## Conclusion
+From this we can conclude that the model is well fitted based on the train data. For the predicted values from test, we cannot conclude much, specially because we don`t have the correct labels to evaluate the data. However, if we make a hypothesis that training-set is representative and is similar to test-set then we can make the assumption that the empirical error is near to the predicted error.
